@@ -64,7 +64,7 @@ def test_business_insights_are_based_on_detected_columns():
 
     assert columns["sales"] == "Sales"
     assert columns["profit"] == "Profit"
-    assert any("Sales leader: B" in item for item in insights)
+    assert any("Sales leader:** B" in item for item in insights)
     assert any("Overall margin" in item for item in insights)
 
 
