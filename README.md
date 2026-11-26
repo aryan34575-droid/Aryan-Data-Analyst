@@ -8,7 +8,7 @@ A calculation-first Streamlit analytics workspace for Excel/CSV files.
 - Executive KPI dashboard
 - Data quality/profile analysis
 - Trend and segment analysis
-- Robust anomaly detection
+- Robust anomaly review with a zero-MAD fallback for flat time series
 - Evidence-backed deterministic business insights
 - Local common-question analyst (Ask Aryan)
 - Interactive Chart Studio
@@ -20,7 +20,9 @@ A calculation-first Streamlit analytics workspace for Excel/CSV files.
 ## Technical structure
 - `app.py`: Streamlit presentation and interaction layer
 - `analytics_core.py`: reusable data preparation, KPI, insights, anomaly and export functions
-- `tests/`: automated unit tests for core analytical behaviour
+- `tests/`: automated unit tests for core analytical behaviour, business-column detection and KPI grain semantics
+
+The KPI engine distinguishes order-level average value from row-level average sales when an order identifier is available. Business measures are detected using conservative numeric-column aliases to reduce false matches. The anomaly detector includes a fallback for flat series where median absolute deviation is zero.
 
 ## Run locally
 ```bash
