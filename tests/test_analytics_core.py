@@ -57,6 +57,60 @@ def test_kpi_pack_returns_reconciled_sales_profit_and_margin():
     assert kpis["Profit Margin %"] == 10.0
 
 
+def test_business_column_detection_avoids_dimension_and_margin_false_matches():
+    frame = pd.DataFrame({
+        "Sales Region": ["North", "South"],
+        "Profit Margin": [0.10, 0.15],
+        "Net Sales": [100.0, 200.0],
+        "Operating Profit": [10.0, 30.0],
+        "Order ID": ["A-1", "A-2"],
+    })
+
+    detected = detect_business_columns(frame)
+
+    assert detected["sales"] == "Net Sales"
+    assert detected["profit"] == "Operating Profit"
+    assert detected["order_id"] == "Order ID"
+    assert detected["revenue"] is None
+    assert detected["cost"] is None
+
+
+def test_average_order_value_uses_distinct_orders_not_row_average():
+    frame = pd.DataFrame({
+        "Order ID": ["A-1", "A-1", "A-2"],
+        "Sales": [100.0, 50.0, 150.0],
+    })
+
+    kpis = kpi_pack(frame)
+
+    assert kpis["Total Sales"] == 300.0
+    assert kpis["Distinct Orders"] == 2
+    assert kpis["Average Order Value"] == 150.0
+    assert "Average Transaction Value" not in kpis
+
+
+def test_average_sales_per_row_is_labelled_without_order_identifier():
+    frame = pd.DataFrame({"Sales": [100.0, 200.0, 300.0]})
+
+    kpis = kpi_pack(frame)
+
+    assert kpis["Average Sales per Row"] == 200.0
+    assert "Average Order Value" not in kpis
+
+
+def test_anomaly_frame_flags_spike_when_mad_is_zero():
+    frame = pd.DataFrame({
+        "Date": pd.date_range("2026-02-01", periods=12, freq="D"),
+        "Sales": [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 100],
+    })
+
+    series, anomalies = anomaly_frame(frame, "Date", "Sales")
+
+    assert len(series) == 12
+    assert len(anomalies) >= 1
+    assert bool(anomalies.iloc[-1]["anomaly"])
+
+
 def test_business_insights_are_based_on_detected_columns():
     cleaned, _ = clean_dataframe(sample_sales_data())
     columns = detect_business_columns(cleaned)
