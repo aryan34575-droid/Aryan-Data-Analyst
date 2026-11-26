@@ -49,20 +49,34 @@ def infer_categorical_columns(df):
 
 
 def detect_business_columns(df):
-    result = {"sales": None, "profit": None, "quantity": None, "discount": None, "revenue": None, "cost": None}
-    aliases = {
-        "sales": ["sales", "sale", "net_sales", "sales_amount"],
-        "profit": ["profit", "net_profit", "gross_profit"],
-        "quantity": ["quantity", "qty", "units", "unit_count"],
-        "discount": ["discount", "discount_pct", "discount_percent"],
-        "revenue": ["revenue", "turnover", "income"],
-        "cost": ["cost", "cogs", "cost_of_goods_sold"],
+    """Find unambiguous numeric business measures without mistaking dimensions for metrics."""
+    result = {
+        "sales": None, "profit": None, "quantity": None, "discount": None,
+        "revenue": None, "cost": None, "order_id": None,
     }
-    for c in df.columns:
-        n = clean_name(c)
-        for key, words in aliases.items():
-            if result[key] is None and any(w == n or w in n for w in words):
-                result[key] = c
+    measure_aliases = {
+        "sales": {"sale", "sales", "net_sales", "gross_sales", "total_sales", "sales_amount", "sales_value"},
+        "profit": {"profit", "net_profit", "gross_profit", "operating_profit", "total_profit"},
+        "quantity": {"quantity", "qty", "units", "unit_count", "total_quantity"},
+        "discount": {"discount", "discount_pct", "discount_percent", "discount_rate"},
+        "revenue": {"revenue", "total_revenue", "net_revenue", "turnover"},
+        "cost": {"cost", "total_cost", "cogs", "cost_of_goods_sold"},
+    }
+    order_aliases = {
+        "order", "order_id", "order_number", "sales_order_id", "transaction_id",
+        "transaction_number", "invoice_id", "invoice_number", "purchase_id",
+    }
+
+    for column in df.columns:
+        normalized = clean_name(column)
+        if result["order_id"] is None and normalized in order_aliases:
+            result["order_id"] = column
+        if not pd.api.types.is_numeric_dtype(df[column]):
+            continue
+        for key, aliases in measure_aliases.items():
+            if result[key] is None and normalized in aliases:
+                result[key] = column
+
     if result["sales"] is None:
         result["sales"] = result["revenue"]
     return result
@@ -127,8 +141,15 @@ def kpi_pack(df):
     b = detect_business_columns(df)
     pack = {"Rows": int(len(df)), "Columns": int(df.shape[1])}
     if b["sales"]:
-        pack["Total Sales"] = float(df[b["sales"]].sum(skipna=True))
-        pack["Average Transaction Value"] = float(df[b["sales"]].mean(skipna=True))
+        total_sales = df[b["sales"]].sum(skipna=True)
+        pack["Total Sales"] = float(total_sales)
+        if b["order_id"]:
+            order_count = int(df[b["order_id"]].nunique(dropna=True))
+            pack["Distinct Orders"] = order_count
+            pack["Average Order Value"] = float(total_sales / order_count) if order_count else np.nan
+        else:
+            # Do not label a row-level mean as a transaction/order average.
+            pack["Average Sales per Row"] = float(df[b["sales"]].mean(skipna=True))
     if b["profit"]:
         pack["Total Profit"] = float(df[b["profit"]].sum(skipna=True))
     if b["quantity"]:
@@ -245,13 +266,20 @@ def anomaly_frame(df, date_col, value_col):
     med = y.rolling(7, min_periods=3, center=True).median()
     resid = y - med
     mad = (resid - resid.median()).abs().median()
-    if mad == 0 or pd.isna(mad):
-        x["anomaly_score"] = 0.0
+    deviation = (resid - resid.median()).abs()
+    if pd.isna(mad):
+        x["anomaly_score"] = np.nan
         x["anomaly"] = False
         return x, x.iloc[0:0]
-    score = (resid - resid.median()).abs() / (1.4826 * mad)
-    x["anomaly_score"] = score
-    x["anomaly"] = score >= 3.5
+    if mad == 0:
+        # A zero MAD is common in flat series. Flag non-zero residual deviations
+        # rather than silently suppressing an obvious isolated spike.
+        x["anomaly_score"] = deviation
+        x["anomaly"] = deviation > 0
+    else:
+        score = deviation / (1.4826 * mad)
+        x["anomaly_score"] = score
+        x["anomaly"] = score >= 3.5
     return x, x[x["anomaly"]].copy()
 
 
