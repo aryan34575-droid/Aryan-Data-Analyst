@@ -17,6 +17,25 @@ A calculation-first Streamlit analytics workspace for Excel/CSV files.
 - One-click complete ZIP analysis pack with interactive HTML charts
 - No paid API key required for core analysis
 
+## Technical structure
+- `app.py`: Streamlit presentation and interaction layer
+- `analytics_core.py`: reusable data preparation, KPI, insights, anomaly and export functions
+- `tests/`: automated unit tests for core analytical behaviour
+
+## Run locally
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## Run tests
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+GitHub Actions runs the test suite on pushes and pull requests to `main`.
+
 ## Deployment
 Designed for Streamlit Community Cloud. `runtime.txt` pins Python 3.12.10.
 
