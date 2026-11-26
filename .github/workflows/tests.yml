@@ -19,5 +19,7 @@ jobs:
           cache: "pip"
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
+      - name: Compile application modules
+        run: python -m compileall -q app.py analytics_core.py
       - name: Run analytics tests
-        run: pytest -q
+        run: python -m pytest -q
