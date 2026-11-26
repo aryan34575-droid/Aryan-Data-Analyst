@@ -51,7 +51,7 @@ def test_kpi_pack_returns_reconciled_sales_profit_and_margin():
 
     assert kpis["Rows"] == 6
     assert kpis["Total Sales"] == 2100.0
-    assert kpis["Average Transaction Value"] == 350.0
+    assert kpis["Average Sales per Row"] == 350.0
     assert kpis["Total Profit"] == 210.0
     assert kpis["Total Quantity"] == 21.0
     assert kpis["Profit Margin %"] == 10.0
